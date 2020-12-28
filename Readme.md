@@ -9,7 +9,7 @@ In this repository the following algorithms have been used as course projects fo
   <li>Various versions of noises and smoothing methods</li>
   <li>Highboost filtering</li>
   <li>Edge detection using Sobel, Canny ,and LoG operators</li>
-  <li>Vertical and horizontal histogram calculation and character</li> separation in car plates</li>
+  <li>Vertical and horizontal histogram calculation and character separation in car plates</li>
   </ol>
 </li>
 
