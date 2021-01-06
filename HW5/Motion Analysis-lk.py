@@ -37,68 +37,200 @@ def read_video(path="videoplayback.mp4", show=False):
 def save_video(frames, save_url="saved_video.avi", fps=25):
     frame_width, frame_height = frames[0].shape[1], frames[0].shape[0]
     out = cv2.VideoWriter(save_url, cv2.VideoWriter_fourcc("M", "J", "P", "G"), fps, (frame_width, frame_height))
-    print("Saving the video...")
     for frame in tqdm(frames):
         out.write(frame)
     out.release()
 
 
-def preprocess_frame(frame, smooth=True):
-    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+def preprocess_frame(frame, smooth=False, return_red=False):
+    if return_red:
+        frame = frame[:, :, 2]
+    else:
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     if smooth:
         frame = cv2.GaussianBlur(frame, (3, 3), 0)
     return frame
 
 
-if __name__ == '__main__':
-    frames = read_video()[102:]
+def check_in_region(a, b):
+    return lambda x: np.logical_and(a < x, x < b)
 
-    lk_params = dict(
-        winSize=(15, 15),
-        maxLevel=2,
-        criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03)
-    )
 
+lk_params = dict(
+            winSize=(15, 15),
+            maxLevel=2,
+            criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03)
+        )
+
+feature_params = dict(
+    maxCorners=30,
+    qualityLevel=0.01,
+    minDistance=10,
+    blockSize=7
+)
+recalculate_every_n_frame = 30
+
+
+# Choose the scene from the below cases:
+scene = 10
+name = "scene" + str(scene)
+##############################################################################
+#                               Scene 1
+##############################################################################
+if scene == 1:
+    recalculate_every_n_frame = 100
+    first_frame, final_frame = 102, 291
+
+##############################################################################
+#                               Scene 2
+##############################################################################
+elif scene == 2:
+    first_frame, final_frame = 292, 448
+
+##############################################################################
+#                               Scene 3
+##############################################################################
+elif scene == 3:
+    first_frame, final_frame = 449, 600
+    recalculate_every_n_frame = 20
     feature_params = dict(
-        maxCorners = 100,
-        qualityLevel = 0.1,
-        minDistance = 7,
-        blockSize = 7
+        maxCorners=30,
+        qualityLevel=0.01,
+        minDistance=200,
+        blockSize=7
     )
 
-    old_gray = preprocess_frame(frames[0], smooth=False)
+##############################################################################
+#                               Scene 4
+##############################################################################
+elif scene == 4:
+    first_frame, final_frame = 601, 816
+    recalculate_every_n_frame = 20
+    feature_params = dict(
+        maxCorners=40,
+        qualityLevel=0.01,
+        minDistance=300,
+        blockSize=7
+    )
+
+##############################################################################
+#                               Scene 5
+##############################################################################
+elif scene == 5:
+    first_frame, final_frame = 817, 1077
+    recalculate_every_n_frame = 20
+    feature_params = dict(
+        maxCorners=30,
+        qualityLevel=0.01,
+        minDistance=100,
+        blockSize=7
+    )
+
+##############################################################################
+#                               Scene 6
+##############################################################################
+elif scene == 6:
+    first_frame, final_frame = 1078, 1328
+    recalculate_every_n_frame = 100
+    feature_params = dict(
+        maxCorners=50,
+        qualityLevel=0.001,
+        minDistance=10,
+        blockSize=7
+    )
+
+
+##############################################################################
+#                               Scene 7
+##############################################################################
+elif scene == 7:
+    first_frame, final_frame = 1329, 1525
+    recalculate_every_n_frame=10
+    feature_params = dict(
+        maxCorners=20,
+        qualityLevel=0.01,
+        minDistance=200,
+        blockSize=7
+    )
+
+##############################################################################
+#                               Scene 8
+##############################################################################
+elif scene == 8:
+    first_frame, final_frame = 1526, 1745
+    recalculate_every_n_frame = 30
+    feature_params = dict(
+        maxCorners=20,
+        qualityLevel=0.01,
+        minDistance=200,
+        blockSize=7
+    )
+
+##############################################################################
+#                               Scene 9
+##############################################################################
+elif scene == 9:
+    first_frame, final_frame = 1746, 2009
+    recalculate_every_n_frame = 10
+    feature_params = dict(
+        maxCorners=20,
+        qualityLevel=0.01,
+        minDistance=200,
+        blockSize=7
+    )
+
+##############################################################################
+#                               Scene 10
+##############################################################################
+elif scene == 10:
+    first_frame, final_frame = 2010, 2242
+    recalculate_every_n_frame = 20
+    feature_params = dict(
+        maxCorners=30,
+        qualityLevel=0.01,
+        minDistance=100,
+        blockSize=7
+    )
+
+if __name__ == '__main__':
+    frames = read_video()[first_frame:final_frame]
+
+    old_gray = preprocess_frame(frames[0])
+
     old_corners = cv2.goodFeaturesToTrack(old_gray, **feature_params)
+    initial_corners = old_corners[:, 0, :]
+    displacement = np.zeros(len(old_corners))
     mask = np.zeros_like(frames[0])
-    color = np.random.randint(0, 255, (100, 3))
+    colors = np.random.randint(0, 255, (100, 3))
+    new_frames_scene = []
 
     # processing the video
     for i, frame in tqdm(enumerate(frames[1:])):
-        new_gray = preprocess_frame(frame, smooth=False)
+        new_gray = preprocess_frame(frame)
         new_corners, st, err = cv2.calcOpticalFlowPyrLK(old_gray, new_gray, old_corners, None, **lk_params)
+        displacement += (np.linalg.norm(new_corners[:, 0, :] - initial_corners, axis=1) / recalculate_every_n_frame)
 
-        print(st)
-        new_good = new_corners[st == 1]
-        old_good = old_corners[st == 1]
-
-        for i, (new, old) in enumerate(zip(new_good, old_good)):
+        for j, (new, old) in enumerate(zip(new_corners[:, 0, :], old_corners[:, 0, :])):
             a, b = new.ravel()
             c, d = old.ravel()
-            mask = cv2.line(mask, (a, b), (c, d), color[i].tolist(), 2)
-            frame = cv2.circle(frame, (a,b), 5, color[i].tolist(), -1)
+
+            if st[j] and displacement[j] > 0.5:
+                mask = cv2.line(mask, (a, b), (c, d), colors[j].tolist(), 2)
+                frame = cv2.circle(frame, (a, b), 5, colors[j].tolist(), -1)
         img = cv2.add(frame, mask)
+        new_frames_scene.append(img)
         cv2.imshow("frame", img)
 
         if cv2.waitKey(30) & 0xff == ord("q"):
             break
 
         old_gray = new_gray.copy()
-        if i % 50 == 0:
-            mask = np.zeros_like(frames[0])
-            mask = cv2.line(mask, (a, b), (c, d), color[i].tolist(), 2)
+        if i % recalculate_every_n_frame == 1:
             old_corners = cv2.goodFeaturesToTrack(new_gray, **feature_params)
+            initial_corners = old_corners[:, 0, :]
+            displacement = np.zeros(len(old_corners))
+
         else:
-            old_corners = new_good.reshape((-1, 1, 2))
+            old_corners = new_corners.reshape((-1, 1, 2))
 
-
-
-
+    save_video(new_frames_scene, f"results1/{name}.avi")
