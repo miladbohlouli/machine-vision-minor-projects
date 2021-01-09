@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 from tqdm import tqdm
+from time import time
 from matplotlib import pyplot as plt
 
 def show_frame(frame, name):
@@ -72,7 +73,7 @@ recalculate_every_n_frame = 30
 
 
 # Choose the scene from the below cases:
-scene = 10
+scene = 5
 name = "scene" + str(scene)
 ##############################################################################
 #                               Scene 1
@@ -223,6 +224,9 @@ if __name__ == '__main__':
 
         if cv2.waitKey(30) & 0xff == ord("q"):
             break
+
+        elif cv2.waitKey(30) & 0xff == ord("s"):
+            cv2.imwrite(f"results1/{time()}.png", img)
 
         old_gray = new_gray.copy()
         if i % recalculate_every_n_frame == 1:
